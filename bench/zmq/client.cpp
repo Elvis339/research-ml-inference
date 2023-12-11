@@ -5,7 +5,6 @@
 #include <random>
 #include <ctime>
 #include <fstream>
-#include <format>
 
 std::vector<float> random_model_inputs(size_t length) {
     std::vector<float> randomFloats;
