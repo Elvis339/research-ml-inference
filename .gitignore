@@ -1,0 +1,9 @@
+build
+data/*
+.idea
+.vs_code
+*.csv
+*.json
+*.env
+*.log
+rust/target
