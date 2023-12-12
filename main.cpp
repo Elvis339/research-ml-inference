@@ -3,7 +3,6 @@
 #include <thread>
 #include <memory>
 #include <vector>
-#include <stdio.h>
 
 #include "zmq.hpp"
 #include "AntiFraud.h"
@@ -82,6 +81,14 @@ void run_broker(AntiFraud* anti_fraud, int number_of_workers) {
 
 int main(int argc, const char *argv[])
 {
+    std::string model_path;
+
+    #if defined(__linux__)
+        model_path = "/home/ec2-user/research-ml-inference/data/anti_fraud_model.pt";
+    #elif defined(__APPLE__)
+        model_path = "/Users/elvissabanovic/Projects/research-ml-inference/data/anti_fraud_model.pt";
+    #endif
+
     const char* num_of_workers_str = argv[1];
     int num_of_workers = 0;
     num_of_workers = atoi(num_of_workers_str);
@@ -90,7 +97,6 @@ int main(int argc, const char *argv[])
         num_of_workers = 10;
     }
 
-    auto model_path = "/Users/elvissabanovic/Projects/research-ml-inference/data/anti_fraud_model.pt";
     std::unique_ptr<AntiFraud> antiFraud = std::make_unique<AntiFraud>(model_path);
 
     run_broker(antiFraud.get(), num_of_workers);
