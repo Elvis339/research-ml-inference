@@ -7,3 +7,4 @@ data/*
 *.env
 *.log
 rust/target
+cmake-build-debug
