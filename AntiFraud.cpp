@@ -22,8 +22,8 @@ std::unique_ptr<torch::jit::script::Module> AntiFraud::load(const std::string& p
     }
 }
 
-at::Tensor AntiFraud::run(std::vector<double> input_data) const {
-    auto opts = torch::TensorOptions().dtype(torch::kDouble);
+at::Tensor AntiFraud::run(std::vector<float> input_data) const {
+    auto opts = torch::TensorOptions().dtype(torch::kFloat32);
     torch::Tensor input_tensor = torch::from_blob(input_data.data(), {(int)input_data.size(), 1}, opts);
     std::vector<torch::jit::IValue> inputs;
     inputs.push_back(input_tensor);

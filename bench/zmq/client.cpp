@@ -43,14 +43,14 @@ int main(int argc, char* argv[]) {
     socket.connect(connection);
 
 
-    auto mock_model_data = random_model_inputs(41);
+    auto mock_model_input = random_model_inputs(41);
 
     const int numRequests = 1000000;
     for (int i = 0; i < numRequests; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
 
-        zmq::message_t request(mock_model_data.size());
-        memcpy(request.data(), mock_model_data.data(), mock_model_data.size());
+        zmq::message_t request(mock_model_input.size());
+        memcpy(request.data(), mock_model_input.data(), mock_model_input.size());
         socket.send(request, 0);
 
         zmq::message_t reply;
@@ -64,7 +64,7 @@ int main(int argc, char* argv[]) {
 
         file << (i + 1) << ",";
         file << elapsed.count() << ",";
-        file << mock_model_data.size() << "\n";
+        file << mock_model_input.size() << "\n";
     }
 
     file.close();

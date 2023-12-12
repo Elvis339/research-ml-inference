@@ -1,164 +1,80 @@
-mod subscriber;
+extern crate flatbuffers;
+mod extended_request_reply_broker;
+mod schema_generated;
 
+use crate::schema_generated::{AntiFraudInputBuilder, AntiFraudResponse};
+use flatbuffers::FlatBufferBuilder;
 use rand::Rng;
-use rouille::Response;
-use serde_json::json;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc};
-use std::time::{Duration, Instant, SystemTime};
-use tokio::sync::Mutex;
-use tokio::task;
-use uuid::Uuid;
-use zmq::{Context, Result, Socket};
+use std::{env, fs::File, io::Write, time::Instant};
+use zmq::Context;
 
-fn rand() -> f32 {
+const ROUTER_ENDPOINT: &str = "ipc:///tmp/router";
+const DEFAULT_LOOP_COUNT: u64 = 100;
+
+fn random_model_inputs() -> Vec<f32> {
     let mut rng = rand::thread_rng();
-    let n: f32 = rng.gen_range(0f32..2f32);
-
-    return n;
+    (0..41).map(|_| rng.gen_range(0f32..2f32)).collect()
 }
 
-// fn publisher_server(socket: Arc<Mutex<Socket>>, total_requests: Arc<AtomicU64>) -> Result<()> {
-//     let mut inputs = Vec::with_capacity(41);
-//
-//     // let start_time = SystemTime::now();
-//     // let end_time = start_time + Duration::from_secs(60 * 1);
-//
-//     let id = Uuid::new_v4();
-//
-//     for _ in 0..41 {
-//         inputs.push(rand());
-//     }
-//
-//     // while SystemTime::now() < end_time {
-//     let timestamp_nanos = SystemTime::now()
-//         .duration_since(SystemTime::UNIX_EPOCH)
-//         .unwrap()
-//         .as_nanos(); // u128
-//
-//     let data = format!(
-//         r#"{{"id": "{}", "model_inputs": {:?}, "start_execution_ns": {}}}"#,
-//         id.to_string(),
-//         inputs,
-//         timestamp_nanos
-//     );
-//
-//     {
-//         let s = socket.lock().unwrap();
-//         s.send(&data.to_string(), 0).unwrap();
-//     }
-//
-//     total_requests.fetch_add(1, Ordering::Relaxed);
-//     println!("[publisher]: {:?}", total_requests.load(Ordering::Relaxed));
-//
-//     // Adjust sleep time if needed
-//     // tokio::time::sleep(Duration::from_millis(10)).await; // Sleep for a short duration
-//     // }
-//
-//     Ok(())
-// }
+fn serialize_data() -> FlatBufferBuilder<'static> {
+    let model_inputs = random_model_inputs();
+    let mut builder = FlatBufferBuilder::with_capacity(1024); // Arbitrary capacity
 
-async fn publisher(socket: Arc<Mutex<Socket>>, total_requests: Arc<AtomicU64>) -> Result<()> {
-    let mut inputs = Vec::with_capacity(41);
+    let inputs = builder.create_vector(&model_inputs);
+    let mut af_input_builder = AntiFraudInputBuilder::new(&mut builder);
+    af_input_builder.add_inputs(inputs);
 
-    /*let start_time = SystemTime::now();
-    let end_time = start_time + Duration::from_secs(60);*/
+    let af_input = af_input_builder.finish();
+    builder.finish(af_input, None);
 
-    let id = Uuid::new_v4();
+    builder
+}
 
-    for _ in 0..41 {
-        inputs.push(rand());
-    }
+fn setup_requester() -> zmq::Socket {
+    let context = Context::new();
+    let requester = context
+        .socket(zmq::REQ)
+        .expect("Failed to create REQ socket");
+    requester
+        .connect(ROUTER_ENDPOINT)
+        .expect("Failed to connect");
+    requester
+}
 
-    for _ in 0..10_001 {
-        let timestamp_nanos = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos(); // u128
+fn main() {
+    let args: Vec<String> = env::args().collect();
+    let count = args
+        .get(1)
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(DEFAULT_LOOP_COUNT);
+    println!("Loop count: {}", count);
 
-        // 1702031616471719886
+    let requester = setup_requester();
+    println!("[client]: connected to {}", ROUTER_ENDPOINT);
 
-        let data = format!(
-            r#"{{"id": "{}", "model_inputs": {:?}, "start_execution_ns": {}}}"#,
-            id.to_string(),
-            inputs,
-            timestamp_nanos
+    let mut file = File::create(format!("extended_request_reply_{}.csv", count)).unwrap();
+
+    writeln!(&mut file, "id,elapsed_time").expect("Failed to write header");
+
+    for request_nbr in 0..count {
+        let start = Instant::now();
+
+        let binding = serialize_data();
+        let data = binding.finished_data();
+        requester.send(data, zmq::DONTWAIT).unwrap();
+
+        let msg = requester.recv_msg(0).unwrap();
+        let data = msg.as_ref();
+        let af_response = flatbuffers::root::<AntiFraudResponse>(data).unwrap();
+
+        let elapsed = start.elapsed().as_nanos();
+        writeln!(&mut file, "{},{}", request_nbr, elapsed).expect("Failed to write data");
+
+        println!(
+            "Received reply {} in {:?} ns - Response: {:?}",
+            request_nbr,
+            elapsed,
+            af_response.response()
         );
-
-        {
-            let s = socket.lock().await;
-            s.send(&data.to_string(), 0).unwrap();
-        }
-
-        total_requests.fetch_add(1, Ordering::Relaxed);
-        println!("[publisher]: {:?}", total_requests.load(Ordering::Relaxed));
-
-        // Adjust sleep time if needed
-        tokio::time::sleep(Duration::from_secs(1 / 60)).await; // Sleep for a short duration
     }
-    Ok(())
-}
-
-// #[tokio::main]
-// async fn main() {
-//     let ctx = Context::new();
-//     tokio::time::sleep(Duration::from_secs(1)).await;
-//
-//     let socket = Arc::new(Mutex::new(ctx.socket(zmq::PUB).unwrap()));
-//     let s1 = socket.clone();
-//     {
-//         s1.lock()
-//             .unwrap()
-//             .bind("ipc:///tmp/zeromq_sub_uds")
-//             .unwrap();
-//     }
-//
-//     let total_requests = Arc::new(AtomicU64::new(0));
-//
-//     tokio::time::sleep(Duration::from_secs(1)).await;
-//     println!("Server started");
-//     rouille::start_server("127.0.0.1:5000", move |_| {
-//         let c = total_requests.clone();
-//         publisher_server(s1.clone(), c).unwrap();
-//         Response::empty_204()
-//     });
-// }
-
-#[tokio::main]
-async fn main() {
-    let ctx = Context::new();
-    println!("[publisher]: sleeping for 2s");
-    tokio::time::sleep(Duration::from_secs(1)).await;
-
-    let socket = Arc::new(Mutex::new(ctx.socket(zmq::PUB).unwrap()));
-    let s1 = socket.clone();
-    {
-        // s1.lock().unwrap().bind("tcp://127.0.0.1:5757").unwrap();
-        s1.lock()
-            .await
-            .bind("ipc:///tmp/zeromq_sub_uds")
-            .unwrap();
-    }
-    let total_requests = Arc::new(AtomicU64::new(0));
-
-    // thread::sleep(Duration::from_secs(1));
-    println!("[publisher]: ready!");
-
-    let num_threads = 850;
-
-    let mut handles = Vec::with_capacity(num_threads);
-    for _ in 0..num_threads {
-        let socket_clone = Arc::clone(&socket);
-        let req_clone = Arc::clone(&total_requests);
-        let handle = task::spawn(async move {
-            publisher(socket_clone, req_clone).await.unwrap();
-        });
-        handles.push(handle);
-    }
-
-    for handle in handles {
-        handle.await.unwrap();
-    }
-
-    println!("Final total requests: {:?}", total_requests.load(Ordering::Relaxed));
 }

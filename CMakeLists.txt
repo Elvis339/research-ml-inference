@@ -12,6 +12,8 @@ include_directories(${ZMQ_INCLUDE_DIRS})
 add_executable(anti_fraud main.cpp
         AntiFraud.cpp
         AntiFraud.h
+        schema_generated.h
+        zhelpers.hpp
 )
 target_link_libraries(anti_fraud "${TORCH_LIBRARIES}")
 target_link_libraries(anti_fraud cppzmq)

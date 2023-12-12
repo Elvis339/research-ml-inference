@@ -3,74 +3,97 @@
 #include <thread>
 #include <memory>
 #include <vector>
-#include <chrono>
+#include <stdio.h>
 
 #include "zmq.hpp"
 #include "AntiFraud.h"
+#include "schema_generated.h"
 
-#include <nlohmann/json.hpp>
-using json = nlohmann::json;
+std::vector<double> anti_fraud_inference(const uint8_t* buf, size_t size, AntiFraud* anti_fraud) {
+    flatbuffers::Verifier verifier(buf, size);
 
-const std::string SUBSCRIBER_ADDR = "ipc:///tmp/zeromq_sub_uds";
-const std::string MODEL_RESULT_PUBLISHER_ADDR = "ipc:///tmp/zeromq_pub_uds";
+    if (!VerifyAntiFraudInputBuffer(verifier)) {
+        throw std::runtime_error("Buffer verification failed!");
+    }
+    const AntiFraudInput* af_input = GetAntiFraudInput(buf);
+    auto fb_vector = af_input->inputs();
 
-void ProcessAndPublish(zmq::socket_t* socket, AntiFraud* antiFraud, zmq::message_t message) {
-    json parsed_data = json::parse(message.to_string());
-    std::vector<double> weights = parsed_data["model_inputs"].get<std::vector<double>>();
+    std::vector<float> std_vector;
+    if (fb_vector) {
+        std_vector.reserve(fb_vector->size());
+        for (float val : *fb_vector) {
+            std_vector.push_back(val);
+        }
+    }
 
-    auto start_model_execution_metric_nano = std::chrono::high_resolution_clock::now();
-    auto af_response = AntiFraud::to_vec(antiFraud->run(std::move(weights)));
-    auto finish_model_execution_metric_nano = std::chrono::high_resolution_clock::now();
+    auto tensor = anti_fraud->run(std_vector);
+    return AntiFraud::to_vec(tensor);
+}
 
-    parsed_data["result"] = af_response[0];
-    parsed_data["inference_time_ns"] = std::chrono::duration_cast<std::chrono::nanoseconds>(finish_model_execution_metric_nano-start_model_execution_metric_nano).count();
+zmq::message_t serialize_response(double anti_fraud_inference_result) {
+    flatbuffers::FlatBufferBuilder builder;
+    auto af_response = CreateAntiFraudResponse(builder, anti_fraud_inference_result);
+    builder.Finish(af_response);
+    uint8_t *buf = builder.GetBufferPointer();
+    size_t size = builder.GetSize();
+    zmq::message_t message(buf, size);
+    return message;
+}
 
-    auto meta = to_string(parsed_data);
-    std::cout << "[anti-fraud(inference_time_ns)]: " << parsed_data["inference_time_ns"] << "\n";
+void worker_task(zmq::context_t& context, int id, AntiFraud* anti_fraud) {
+    zmq::socket_t socket(context, ZMQ_REP);
+    socket.connect("ipc:///tmp/workers");
 
-    zmq::message_t msg(meta.size());
-    memcpy(msg.data(), meta.data(), meta.size());
+    while (true) {
+        zmq::message_t rx_msg;
+        socket.recv(rx_msg, zmq::recv_flags::none);
 
-    try {
-        socket->send(msg, zmq::send_flags::dontwait);
-        msg.rebuild(meta.size());
-    } catch(zmq::error_t &e) {
-        std::cout << e.what() << std::endl;
+        // Extract the data pointer and size from the message
+        const uint8_t* data = rx_msg.data<uint8_t>();
+        size_t size = rx_msg.size();
+
+        auto result = serialize_response(anti_fraud_inference(data, size, anti_fraud)[0]);
+        socket.send(result);
+        std::cout << "[worker(" << id << ")]: done\n";
     }
 }
 
-void Processor(zmq::context_t* ctx, AntiFraud* antiFraud)
-{
-    zmq::socket_t publisher_socket(*ctx, zmq::socket_type::pub);
-    publisher_socket.bind(MODEL_RESULT_PUBLISHER_ADDR);
-    std::this_thread::sleep_for(std::chrono::milliseconds (1000));
+void run_broker(AntiFraud* anti_fraud, int number_of_workers) {
+    zmq::context_t context(1);
+    zmq::socket_t frontend(context, ZMQ_ROUTER); // Client-facing socket
+    zmq::socket_t backend(context, ZMQ_DEALER);  // Worker-facing socket
 
+    frontend.bind("ipc:///tmp/router"); // For clients
+    backend.bind("ipc:///tmp/workers"); // For worker threads
 
-    zmq::socket_t subscriber(*ctx, zmq::socket_type::sub);
-    subscriber.connect(SUBSCRIBER_ADDR);
-    subscriber.set(zmq::sockopt::subscribe, "");
+    const int num_workers = number_of_workers; // Number of worker threads in the pool
+    std::vector<std::thread> workers;
 
-    std::cout << "[processor]: started\n";
-    while (true) {
-        zmq::message_t rx_msg;
-        subscriber.recv(rx_msg, zmq::recv_flags::none);
-
-//        std::string msg = std::string(static_cast<char*>(rx_msg.data()), rx_msg.size());
-
-
-        ProcessAndPublish(&publisher_socket, antiFraud, std::move(rx_msg));
-//
-//        std::thread processingThread(ProcessAndPublish, &publisher_socket, antiFraud, std::move(rx_msg));
-//        processingThread.join();
+    // Start worker threads
+    for (int i = 0; i < num_workers; ++i) {
+        workers.emplace_back(worker_task, std::ref(context), i, anti_fraud);
     }
+
+    std::cout << "[broker]: created thread pool of=" << num_workers << " workers\n";
+
+    // Use ZeroMQ's proxy function to handle forwarding between sockets
+    zmq::proxy(static_cast<void*>(frontend), static_cast<void*>(backend), nullptr);
 }
 
 int main(int argc, const char *argv[])
 {
+    const char* num_of_workers_str = argv[1];
+    int num_of_workers = 0;
+    num_of_workers = atoi(num_of_workers_str);
+
+    if (num_of_workers <= 0) {
+        num_of_workers = 10;
+    }
+
     auto model_path = "/Users/elvissabanovic/Projects/research-ml-inference/data/anti_fraud_model.pt";
     std::unique_ptr<AntiFraud> antiFraud = std::make_unique<AntiFraud>(model_path);
-    zmq::context_t ctx(1);
-    Processor(&ctx, antiFraud.get());
+
+    run_broker(antiFraud.get(), num_of_workers);
     std::cout << "Execution completed successfully.\n";
     return 0;
 }
