@@ -1,7 +1,12 @@
 cmake_minimum_required(VERSION 3.0 FATAL_ERROR)
 project(anti_fraud)
 
-set(CMAKE_PREFIX_PATH "/opt/homebrew/Cellar/pytorch/2.1.0_1;/opt/homebrew/Cellar/zeromq/4.3.5_1")
+if (CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(CMAKE_PREFIX_PATH "/home/ec2-user/libtorch")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+elseif (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    set(CMAKE_PREFIX_PATH "/opt/homebrew/Cellar/pytorch/2.1.0_1;/opt/homebrew/Cellar/zeromq/4.3.5_1")
+endif()
 
 find_package(Torch REQUIRED)
 find_package(cppzmq REQUIRED)
