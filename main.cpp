@@ -5,6 +5,7 @@
 #include <vector>
 
 #include "zmq.hpp"
+#include "zhelpers.hpp"
 #include "AntiFraud.h"
 #include "schema_generated.h"
 
@@ -39,8 +40,10 @@ zmq::message_t serialize_response(double anti_fraud_inference_result) {
     return message;
 }
 
-void worker_task(zmq::context_t& context, int id, AntiFraud* anti_fraud) {
+void worker_task(zmq::context_t& context, AntiFraud* anti_fraud) {
     zmq::socket_t socket(context, ZMQ_REP);
+    // Set identity
+    auto id = s_set_id(socket);
     socket.connect("ipc:///tmp/workers");
 
     while (true) {
@@ -58,7 +61,7 @@ void worker_task(zmq::context_t& context, int id, AntiFraud* anti_fraud) {
 }
 
 void run_broker(AntiFraud* anti_fraud, int number_of_workers) {
-    zmq::context_t context(1);
+    zmq::context_t context(4);
     zmq::socket_t frontend(context, ZMQ_ROUTER); // Client-facing socket
     zmq::socket_t backend(context, ZMQ_DEALER);  // Worker-facing socket
 
@@ -70,7 +73,7 @@ void run_broker(AntiFraud* anti_fraud, int number_of_workers) {
 
     // Start worker threads
     for (int i = 0; i < num_workers; ++i) {
-        workers.emplace_back(worker_task, std::ref(context), i, anti_fraud);
+        workers.emplace_back(worker_task, std::ref(context), anti_fraud);
     }
 
     std::cout << "[broker]: created thread pool of=" << num_workers << " workers\n";
@@ -98,7 +101,6 @@ int main(int argc, const char *argv[])
     }
 
     std::unique_ptr<AntiFraud> antiFraud = std::make_unique<AntiFraud>(model_path);
-
     run_broker(antiFraud.get(), num_of_workers);
     std::cout << "Execution completed successfully.\n";
     return 0;
