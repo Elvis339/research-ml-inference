@@ -13,14 +13,15 @@ find_package(cppzmq REQUIRED)
 find_package(nlohmann_json 3.2.0 REQUIRED)
 
 include_directories(${ZMQ_INCLUDE_DIRS})
+file(GLOB SOURCES "src/*.cpp" "src/*.h")
 
 add_executable(anti_fraud main.cpp
         AntiFraud.cpp
         AntiFraud.h
         schema_generated.h
         zhelpers.hpp
+        ${SOURCES}
 )
 target_link_libraries(anti_fraud "${TORCH_LIBRARIES}")
 target_link_libraries(anti_fraud cppzmq)
-target_link_libraries(anti_fraud nlohmann_json::nlohmann_json)
 set_property(TARGET anti_fraud PROPERTY CXX_STANDARD 17)

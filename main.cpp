@@ -1,13 +1,19 @@
-#include <future>
 #include <iostream>
 #include <thread>
 #include <memory>
 #include <vector>
 
+#include "any"
 #include "zmq.hpp"
 #include "zhelpers.hpp"
 #include "AntiFraud.h"
+#include "src/CliArgParser.h"
 #include "schema_generated.h"
+
+uint64_t timeSinceEpochMillisec() {
+    using namespace std::chrono;
+    return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
+}
 
 std::vector<double> anti_fraud_inference(const uint8_t* buf, size_t size, AntiFraud* anti_fraud) {
     flatbuffers::Verifier verifier(buf, size);
@@ -40,11 +46,11 @@ zmq::message_t serialize_response(double anti_fraud_inference_result) {
     return message;
 }
 
-void worker_task(zmq::context_t& context, AntiFraud* anti_fraud) {
+void worker_task(zmq::context_t& context, AntiFraud* anti_fraud, std::string& dealerAddress) {
     zmq::socket_t socket(context, ZMQ_REP);
     // Set identity
     auto id = s_set_id(socket);
-    socket.connect("ipc:///tmp/workers");
+    socket.connect(dealerAddress);
 
     while (true) {
         zmq::message_t rx_msg;
@@ -56,28 +62,27 @@ void worker_task(zmq::context_t& context, AntiFraud* anti_fraud) {
 
         auto result = serialize_response(anti_fraud_inference(data, size, anti_fraud)[0]);
         socket.send(result);
-        std::cout << "[worker(" << id << ")]: done\n";
+        std::cout << "[worker(" << timeSinceEpochMillisec() << ")]:" << "id=" << id << "\n";
     }
 }
 
-void run_broker(AntiFraud* anti_fraud, int number_of_workers) {
-    zmq::context_t context(4);
+void run_broker(AntiFraud* anti_fraud, int workers, std::string& routerAddress, std::string& dealerAddress) {
+    zmq::context_t context(2);
     zmq::socket_t frontend(context, ZMQ_ROUTER); // Client-facing socket
     zmq::socket_t backend(context, ZMQ_DEALER);  // Worker-facing socket
 
-    frontend.bind("ipc:///tmp/router"); // For clients
-    backend.bind("ipc:///tmp/workers"); // For worker threads
+    frontend.bind(routerAddress); // For clients
+    backend.bind(dealerAddress); // For worker threads
 
-    const int num_workers = number_of_workers; // Number of worker threads in the pool
-    std::vector<std::thread> workers;
+    std::vector<std::thread> workerThreads;
+    workerThreads.reserve(workers);
 
     // Start worker threads
-    for (int i = 0; i < num_workers; ++i) {
-        workers.emplace_back(worker_task, std::ref(context), anti_fraud);
+    for (int i = 0; i < workers; ++i) {
+        workerThreads.emplace_back(worker_task, std::ref(context), anti_fraud, std::ref(dealerAddress));
     }
 
-    std::cout << "[broker]: created thread pool of=" << num_workers << " workers\n";
-
+    std::cout << "[broker(" << timeSinceEpochMillisec() << ")]:" << "created thread pool of=" << workers << " workers\n";
     // Use ZeroMQ's proxy function to handle forwarding between sockets
     zmq::proxy(static_cast<void*>(frontend), static_cast<void*>(backend), nullptr);
 }
@@ -85,23 +90,35 @@ void run_broker(AntiFraud* anti_fraud, int number_of_workers) {
 int main(int argc, const char *argv[])
 {
     std::string model_path;
+    int workers;
+    std::string routerAddress;
+    std::string dealerAddress;
 
-    #if defined(__linux__)
-        model_path = "/home/ec2-user/research-ml-inference/data/anti_fraud_model.pt";
-    #elif defined(__APPLE__)
-        model_path = "/Users/elvissabanovic/Projects/research-ml-inference/data/anti_fraud_model.pt";
-    #endif
+    CliArgParser cli = CliArgParser();
+    cli.parse(argc, argv);
 
-    const char* num_of_workers_str = argv[1];
-    int num_of_workers = 0;
-    num_of_workers = atoi(num_of_workers_str);
+    try {
+        auto modelPathCmd = std::any_cast<std::string>(cli.getCommandValue("model-path"));
+        model_path = modelPathCmd;
 
-    if (num_of_workers <= 0) {
-        num_of_workers = 10;
+        auto routerAddressCmd = std::any_cast<std::string>(cli.getCommandValue("router"));
+        routerAddress = routerAddressCmd;
+
+        auto dealerAddressCmd = std::any_cast<std::string>(cli.getCommandValue("dealer"));
+        dealerAddress = dealerAddressCmd;
+
+        auto workersCmd = std::any_cast<int>(cli.getCommandValue("workers"));
+        workers = workersCmd;
+    } catch (const std::bad_any_cast& e) {
+        std::cerr << e.what() << std::endl;
+    }
+
+    if (workers <= 0) {
+        workers = 10;
     }
 
     std::unique_ptr<AntiFraud> antiFraud = std::make_unique<AntiFraud>(model_path);
-    run_broker(antiFraud.get(), num_of_workers);
+    run_broker(antiFraud.get(), workers, routerAddress, dealerAddress);
     std::cout << "Execution completed successfully.\n";
     return 0;
 }
