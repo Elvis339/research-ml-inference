@@ -16,8 +16,6 @@ include_directories(${ZMQ_INCLUDE_DIRS})
 file(GLOB SOURCES "src/*.cpp" "src/*.h")
 
 add_executable(anti_fraud main.cpp
-        AntiFraud.cpp
-        AntiFraud.h
         schema_generated.h
         zhelpers.hpp
         ${SOURCES}

@@ -6,7 +6,7 @@
 #include "any"
 #include "zmq.hpp"
 #include "zhelpers.hpp"
-#include "AntiFraud.h"
+#include "src/AntiFraud.h"
 #include "src/CliArgParser.h"
 #include "schema_generated.h"
 
@@ -15,7 +15,7 @@ uint64_t timeSinceEpochMillisec() {
     return duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count();
 }
 
-std::vector<double> anti_fraud_inference(const uint8_t* buf, size_t size, AntiFraud* anti_fraud) {
+std::vector<double> antiFraudInference(const uint8_t* buf, size_t size, AntiFraud* anti_fraud) {
     flatbuffers::Verifier verifier(buf, size);
 
     if (!VerifyAntiFraudInputBuffer(verifier)) {
@@ -36,7 +36,7 @@ std::vector<double> anti_fraud_inference(const uint8_t* buf, size_t size, AntiFr
     return AntiFraud::to_vec(tensor);
 }
 
-zmq::message_t serialize_response(double anti_fraud_inference_result) {
+zmq::message_t serializeResponse(double anti_fraud_inference_result) {
     flatbuffers::FlatBufferBuilder builder;
     auto af_response = CreateAntiFraudResponse(builder, anti_fraud_inference_result);
     builder.Finish(af_response);
@@ -46,7 +46,7 @@ zmq::message_t serialize_response(double anti_fraud_inference_result) {
     return message;
 }
 
-void worker_task(zmq::context_t& context, AntiFraud* anti_fraud, std::string& dealerAddress) {
+void workerTask(zmq::context_t& context, AntiFraud* anti_fraud, std::string& dealerAddress) {
     zmq::socket_t socket(context, ZMQ_REP);
     // Set identity
     auto id = s_set_id(socket);
@@ -60,13 +60,13 @@ void worker_task(zmq::context_t& context, AntiFraud* anti_fraud, std::string& de
         const uint8_t* data = rx_msg.data<uint8_t>();
         size_t size = rx_msg.size();
 
-        auto result = serialize_response(anti_fraud_inference(data, size, anti_fraud)[0]);
+        auto result = serializeResponse(antiFraudInference(data, size, anti_fraud)[0]);
         socket.send(result);
         std::cout << "[worker(" << timeSinceEpochMillisec() << ")]:" << "id=" << id << "\n";
     }
 }
 
-void run_broker(AntiFraud* anti_fraud, int workers, std::string& routerAddress, std::string& dealerAddress) {
+void runBroker(AntiFraud* anti_fraud, int workers, std::string& routerAddress, std::string& dealerAddress) {
     zmq::context_t context(2);
     zmq::socket_t frontend(context, ZMQ_ROUTER); // Client-facing socket
     zmq::socket_t backend(context, ZMQ_DEALER);  // Worker-facing socket
@@ -79,7 +79,7 @@ void run_broker(AntiFraud* anti_fraud, int workers, std::string& routerAddress, 
 
     // Start worker threads
     for (int i = 0; i < workers; ++i) {
-        workerThreads.emplace_back(worker_task, std::ref(context), anti_fraud, std::ref(dealerAddress));
+        workerThreads.emplace_back(workerTask, std::ref(context), anti_fraud, std::ref(dealerAddress));
     }
 
     std::cout << "[broker(" << timeSinceEpochMillisec() << ")]:" << "created thread pool of=" << workers << " workers\n";
@@ -118,7 +118,7 @@ int main(int argc, const char *argv[])
     }
 
     std::unique_ptr<AntiFraud> antiFraud = std::make_unique<AntiFraud>(model_path);
-    run_broker(antiFraud.get(), workers, routerAddress, dealerAddress);
+    runBroker(antiFraud.get(), workers, routerAddress, dealerAddress);
     std::cout << "Execution completed successfully.\n";
     return 0;
 }
