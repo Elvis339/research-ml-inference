@@ -24,8 +24,8 @@ struct AntiFraudInput FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_INPUTS = 4
   };
-  const ::flatbuffers::Vector<float> *inputs() const {
-    return GetPointer<const ::flatbuffers::Vector<float> *>(VT_INPUTS);
+  const ::flatbuffers::Vector<double> *inputs() const {
+    return GetPointer<const ::flatbuffers::Vector<double> *>(VT_INPUTS);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -39,7 +39,7 @@ struct AntiFraudInputBuilder {
   typedef AntiFraudInput Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
-  void add_inputs(::flatbuffers::Offset<::flatbuffers::Vector<float>> inputs) {
+  void add_inputs(::flatbuffers::Offset<::flatbuffers::Vector<double>> inputs) {
     fbb_.AddOffset(AntiFraudInput::VT_INPUTS, inputs);
   }
   explicit AntiFraudInputBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
@@ -55,7 +55,7 @@ struct AntiFraudInputBuilder {
 
 inline ::flatbuffers::Offset<AntiFraudInput> CreateAntiFraudInput(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    ::flatbuffers::Offset<::flatbuffers::Vector<float>> inputs = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<double>> inputs = 0) {
   AntiFraudInputBuilder builder_(_fbb);
   builder_.add_inputs(inputs);
   return builder_.Finish();
@@ -63,8 +63,8 @@ inline ::flatbuffers::Offset<AntiFraudInput> CreateAntiFraudInput(
 
 inline ::flatbuffers::Offset<AntiFraudInput> CreateAntiFraudInputDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<float> *inputs = nullptr) {
-  auto inputs__ = inputs ? _fbb.CreateVector<float>(*inputs) : 0;
+    const std::vector<double> *inputs = nullptr) {
+  auto inputs__ = inputs ? _fbb.CreateVector<double>(*inputs) : 0;
   return CreateAntiFraudInput(
       _fbb,
       inputs__);
@@ -75,12 +75,13 @@ struct AntiFraudResponse FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_RESPONSE = 4
   };
-  double response() const {
-    return GetField<double>(VT_RESPONSE, 0.0);
+  const ::flatbuffers::Vector<double> *response() const {
+    return GetPointer<const ::flatbuffers::Vector<double> *>(VT_RESPONSE);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<double>(verifier, VT_RESPONSE, 8) &&
+           VerifyOffset(verifier, VT_RESPONSE) &&
+           verifier.VerifyVector(response()) &&
            verifier.EndTable();
   }
 };
@@ -89,8 +90,8 @@ struct AntiFraudResponseBuilder {
   typedef AntiFraudResponse Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
-  void add_response(double response) {
-    fbb_.AddElement<double>(AntiFraudResponse::VT_RESPONSE, response, 0.0);
+  void add_response(::flatbuffers::Offset<::flatbuffers::Vector<double>> response) {
+    fbb_.AddOffset(AntiFraudResponse::VT_RESPONSE, response);
   }
   explicit AntiFraudResponseBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -105,10 +106,19 @@ struct AntiFraudResponseBuilder {
 
 inline ::flatbuffers::Offset<AntiFraudResponse> CreateAntiFraudResponse(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    double response = 0.0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<double>> response = 0) {
   AntiFraudResponseBuilder builder_(_fbb);
   builder_.add_response(response);
   return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<AntiFraudResponse> CreateAntiFraudResponseDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<double> *response = nullptr) {
+  auto response__ = response ? _fbb.CreateVector<double>(*response) : 0;
+  return CreateAntiFraudResponse(
+      _fbb,
+      response__);
 }
 
 inline const AntiFraudInput *GetAntiFraudInput(const void *buf) {

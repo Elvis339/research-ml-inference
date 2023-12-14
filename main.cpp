@@ -24,10 +24,10 @@ std::vector<double> antiFraudInference(const uint8_t* buf, size_t size, AntiFrau
     const AntiFraudInput* af_input = GetAntiFraudInput(buf);
     auto fb_vector = af_input->inputs();
 
-    std::vector<float> std_vector;
+    std::vector<double> std_vector;
     if (fb_vector) {
         std_vector.reserve(fb_vector->size());
-        for (float val : *fb_vector) {
+        for (double val : *fb_vector) {
             std_vector.push_back(val);
         }
     }
@@ -36,10 +36,14 @@ std::vector<double> antiFraudInference(const uint8_t* buf, size_t size, AntiFrau
     return AntiFraud::to_vec(tensor);
 }
 
-zmq::message_t serializeResponse(double anti_fraud_inference_result) {
+zmq::message_t serializeResponse(const std::vector<double>& antiFraudInferenceResult) {
     flatbuffers::FlatBufferBuilder builder;
-    auto af_response = CreateAntiFraudResponse(builder, anti_fraud_inference_result);
-    builder.Finish(af_response);
+    auto responseVector = builder.CreateVector(antiFraudInferenceResult);
+    AntiFraudResponseBuilder responseBuilder(builder);
+    responseBuilder.add_response(responseVector);
+    auto afResponse = responseBuilder.Finish();
+    builder.Finish(afResponse);
+
     uint8_t *buf = builder.GetBufferPointer();
     size_t size = builder.GetSize();
     zmq::message_t message(buf, size);
@@ -60,7 +64,7 @@ void workerTask(zmq::context_t& context, AntiFraud* anti_fraud, std::string& dea
         const uint8_t* data = rx_msg.data<uint8_t>();
         size_t size = rx_msg.size();
 
-        auto result = serializeResponse(antiFraudInference(data, size, anti_fraud)[0]);
+        auto result = serializeResponse(antiFraudInference(data, size, anti_fraud));
         socket.send(result);
         std::cout << "[worker(" << timeSinceEpochMillisec() << ")]:" << "id=" << id << "\n";
     }

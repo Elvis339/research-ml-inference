@@ -16,7 +16,7 @@ class AntiFraud {
 public:
     std::unique_ptr<torch::jit::script::Module> anti_fraud;
     explicit AntiFraud(const std::string& path);
-    at::Tensor run(std::vector<float> data) const;
+    at::Tensor run(std::vector<double> data) const;
     static std::vector<double> to_vec(const at::Tensor& tensor);
     ~AntiFraud();
 private:

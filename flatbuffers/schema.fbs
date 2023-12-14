@@ -1,9 +1,9 @@
 table AntiFraudInput {
-    inputs: [float32];
+    inputs: [float64];
 }
 
 table AntiFraudResponse {
-    response: double;
+    response: [float64];
 }
 
 root_type AntiFraudInput;

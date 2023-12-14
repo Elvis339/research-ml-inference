@@ -14,9 +14,9 @@ const ROUTER_ENDPOINT: &str = "ipc:///tmp/router";
 const DEFAULT_LOOP_COUNT: u64 = 100;
 const DEFAULT_THREADS: usize = 25;
 
-fn random_model_inputs() -> Vec<f32> {
+fn random_model_inputs() -> Vec<f64> {
     let mut rng = rand::thread_rng();
-    (0..41).map(|_| rng.gen_range(0f32..2f32)).collect()
+    (0..41).map(|_| rng.gen_range(0f64..2f64)).collect()
 }
 
 fn serialize_data() -> FlatBufferBuilder<'static> {
