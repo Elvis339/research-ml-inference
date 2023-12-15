@@ -74,7 +74,7 @@ void workerTask(zmq::context_t& context, AntiFraud* anti_fraud, std::string& dea
             size_t size = rx_msg.size();
 
             auto result = serializeResponse(antiFraudInference(data, size, anti_fraud));
-            socket.send(result);
+            socket.send(result, zmq::send_flags::none);
             std::cout << "[worker(" << timeSinceEpochMillisec() << ")]:" << "id=" << id << "\n";
         }
     } catch (const zmq::error_t& e) {
