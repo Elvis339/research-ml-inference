@@ -51,22 +51,41 @@ zmq::message_t serializeResponse(const std::vector<double>& antiFraudInferenceRe
 }
 
 void workerTask(zmq::context_t& context, AntiFraud* anti_fraud, std::string& dealerAddress) {
-    zmq::socket_t socket(context, ZMQ_REP);
-    // Set identity
-    auto id = s_set_id(socket);
-    socket.connect(dealerAddress);
+    auto cerrCleanup = []() -> void { std::cerr.flush(); };
 
-    while (true) {
-        zmq::message_t rx_msg;
-        socket.recv(rx_msg, zmq::recv_flags::none);
+    try {
+        // when socket goes out of scope it will be destroyed and closed
+        zmq::socket_t socket(context, ZMQ_REP);
+        // Set identity
+        auto id = s_set_id(socket);
+        socket.connect(dealerAddress);
 
-        // Extract the data pointer and size from the message
-        const uint8_t* data = rx_msg.data<uint8_t>();
-        size_t size = rx_msg.size();
+        while (true) {
+            zmq::message_t rx_msg;
+            // In case of bad recv break the loop and terminate
+            if (!socket.recv(rx_msg, zmq::recv_flags::none)) {
+                std::cout << "[worker(" << timeSinceEpochMillisec() << ")]:" << "id=" << id << " bad recv shutting down\n";
+                std::cout.flush();
+                break;
+            }
 
-        auto result = serializeResponse(antiFraudInference(data, size, anti_fraud));
-        socket.send(result);
-        std::cout << "[worker(" << timeSinceEpochMillisec() << ")]:" << "id=" << id << "\n";
+            // Extract the data pointer and size from the message
+            const uint8_t* data = rx_msg.data<uint8_t>();
+            size_t size = rx_msg.size();
+
+            auto result = serializeResponse(antiFraudInference(data, size, anti_fraud));
+            socket.send(result);
+            std::cout << "[worker(" << timeSinceEpochMillisec() << ")]:" << "id=" << id << "\n";
+        }
+    } catch (const zmq::error_t& e) {
+        std::cerr << "ZMQ error in workerTask: " << e.what() << std::endl;
+        cerrCleanup();
+    }  catch (const std::exception& e) {
+        std::cerr << "Standard exception in workerTask: " << e.what() << std::endl;
+        cerrCleanup();
+    } catch (...) {
+        std::cerr << "Unknown exception in workerTask." << std::endl;
+        cerrCleanup();
     }
 }
 
