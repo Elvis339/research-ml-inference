@@ -7,5 +7,6 @@ data/*.pt
 *.json
 *.env
 *.log
+metrics/metrics.ipynb
 rust/target
 cmake-build-debug
