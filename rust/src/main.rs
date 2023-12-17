@@ -116,11 +116,6 @@ fn main() {
     let file = Arc::new(Mutex::new(
         File::create(format!("extended_request_reply_{}.csv", count)).unwrap(),
     ));
-    writeln!(file.lock().unwrap(), "id,elapsed_time_ns").expect("Failed to write header");
-
-    let file = Arc::new(Mutex::new(
-        File::create(format!("extended_request_reply_{}.csv", count)).unwrap(),
-    ));
     writeln!(&mut file.lock().unwrap(), "id,elapsed_time_ns").expect("Failed to write header");
 
     match request_config {
