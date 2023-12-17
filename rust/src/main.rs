@@ -3,16 +3,48 @@ mod extended_request_reply_broker;
 mod schema_generated;
 
 use crate::schema_generated::{AntiFraudInputBuilder, AntiFraudResponse};
+use clap::{Parser, Subcommand};
 use flatbuffers::FlatBufferBuilder;
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
+use std::error::Error;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use std::{env, fs::File, io::Write, time::Instant};
 use zmq::Context;
 
-const ROUTER_ENDPOINT: &str = "ipc:///tmp/router";
+const DEFAULT_ROUTER_ADDRESS: &str = "ipc:///tmp/router";
 const DEFAULT_LOOP_COUNT: u64 = 100;
 const DEFAULT_THREADS: usize = 25;
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[arg(short, long)]
+    /// Number of requests to send to the router socket
+    count: Option<u64>,
+
+    #[arg(short, long)]
+    /// Address where to send messages
+    router_address: Option<String>,
+
+    #[command(subcommand)]
+    request_config: Option<Config>,
+}
+
+#[derive(Subcommand)]
+enum Config {
+    Request {
+        #[arg(short, long)]
+        /// Sleep time in ms before sending next request
+        sleep: u64,
+
+        #[arg(short, long)]
+        /// Number of batch request to send and then sleep
+        batch: Option<u64>,
+    },
+}
 
 fn random_model_inputs() -> Vec<f64> {
     let mut rng = rand::thread_rng();
@@ -33,61 +65,94 @@ fn serialize_data() -> FlatBufferBuilder<'static> {
     builder
 }
 
-fn setup_requester(context: Arc<Context>) -> zmq::Socket {
+fn setup_requester<'a>(context: Arc<Context>, address: &'a str) -> zmq::Socket {
     let requester = context
         .socket(zmq::REQ)
         .expect("Failed to create REQ socket");
-    requester
-        .connect(ROUTER_ENDPOINT)
-        .expect("Failed to connect");
+    requester.connect(&address).expect("Failed to connect");
     requester
 }
 
+fn process_request(
+    context: Arc<Context>,
+    router_address: &str,
+    file: &Mutex<File>,
+    request_nbr: u64,
+) -> Result<(), Box<dyn Error>> {
+    let binding = router_address.to_string();
+    let requester = setup_requester(context.clone(), &binding);
+    let start = Instant::now();
+
+    let binding = serialize_data(); // Assuming this returns a Result
+    let data = binding.finished_data();
+    requester.send(data, zmq::DONTWAIT)?;
+
+    let msg = requester.recv_msg(0)?;
+    let data = msg.as_ref();
+    let _ = flatbuffers::root::<AntiFraudResponse>(data)?; // Handle this result as needed
+
+    let elapsed = start.elapsed().as_nanos();
+    writeln!(file.lock().unwrap(), "{},{}", request_nbr, elapsed)?;
+
+    println!("Received reply {} in {:?} ns", request_nbr, elapsed);
+    Ok(())
+}
+
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let count = args
-        .get(1)
-        .and_then(|s| s.parse::<u64>().ok())
-        .unwrap_or(DEFAULT_LOOP_COUNT);
+    let cli = Cli::parse();
+
+    let count = cli.count.unwrap_or(DEFAULT_LOOP_COUNT);
+    let binding = DEFAULT_ROUTER_ADDRESS.to_string();
+    let router_address = Arc::new(cli.router_address.unwrap_or(binding));
+    let request_config = cli.request_config;
 
     println!("Loop count: {}", count);
 
     let context = Arc::new(Context::new()); // Shared ZMQ context
-    println!("[client]: connected to {}", ROUTER_ENDPOINT);
+    println!("[client]: connected to {}", router_address);
 
     let file = Arc::new(Mutex::new(
         File::create(format!("extended_request_reply_{}.csv", count)).unwrap(),
     ));
     writeln!(file.lock().unwrap(), "id,elapsed_time_ns").expect("Failed to write header");
 
-    let mut file = Arc::new(Mutex::new(
+    let file = Arc::new(Mutex::new(
         File::create(format!("extended_request_reply_{}.csv", count)).unwrap(),
     ));
     writeln!(&mut file.lock().unwrap(), "id,elapsed_time_ns").expect("Failed to write header");
 
-    (0..count)
-        .into_par_iter()
-        .for_each_with((context, file), |(context, file), request_nbr| {
-            let requester = setup_requester(context.clone());
-            let start = Instant::now();
-
-            let binding = serialize_data();
-            let data = binding.finished_data();
-            requester.send(data, zmq::DONTWAIT).unwrap();
-
-            let msg = requester.recv_msg(0).unwrap();
-            let data = msg.as_ref();
-            let af_response = flatbuffers::root::<AntiFraudResponse>(data).unwrap();
-
-            let elapsed = start.elapsed().as_nanos();
-            writeln!(&mut file.lock().unwrap(), "{},{}", request_nbr, elapsed)
-                .expect("Failed to write data");
-
-            println!(
-                "Received reply {} in {:?} ns - Response: {:?}",
-                request_nbr,
-                elapsed,
-                af_response.response()
+    match request_config {
+        None => {
+            (0..count).into_par_iter().for_each_with(
+                (context, file),
+                |(context, file), request_nbr| {
+                    if let Err(e) =
+                        process_request(context.clone(), &router_address, &file, request_nbr)
+                    {
+                        eprintln!("Failed to process request {}: {}", request_nbr, e);
+                    }
+                },
             );
-        });
+        }
+        Some(Config::Request { sleep, batch }) => {
+            let default_batch_counter = batch.unwrap_or(10);
+            let mut batch_counter = default_batch_counter;
+            println!("[client]: sleep={}ms batch={} ", sleep, batch_counter);
+
+            (0..count).into_iter().for_each(|request_nbr| {
+                if batch_counter == 0 {
+                    std::thread::sleep(Duration::from_millis(sleep));
+                    batch_counter = default_batch_counter;
+                } else {
+                    batch_counter -= 1;
+                }
+
+                if let Err(e) =
+                    process_request(context.clone(), &router_address, &file, request_nbr)
+                {
+                    eprintln!("Failed to process request {}: {}", request_nbr, e);
+                }
+            })
+        }
+    }
 }

@@ -10,3 +10,4 @@ zmq = "0.10.0"
 rand = "0.8.5"
 flatbuffers = "23.5.26"
 rayon = "1.8.0"
+clap = { version = "4.4.11", features = ["derive"] }

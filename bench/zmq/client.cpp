@@ -5,6 +5,8 @@
 #include <random>
 #include <ctime>
 #include <fstream>
+#include <thread>
+#include <sstream>
 
 std::vector<float> random_model_inputs(size_t length) {
     std::vector<float> randomFloats;
@@ -23,19 +25,25 @@ std::vector<float> random_model_inputs(size_t length) {
 
 int main(int argc, char* argv[]) {
     std::string connection = argv[1];
-    std::string filename;
+    std::ostringstream filename;
 
     if (connection == "uds") {
         connection = "ipc:///tmp/pingpong";
-        filename = "uds_metrics.csv";
+        filename << "uds_metrics";
     } else {
         connection = "tcp://localhost:5555";
-        filename = "tcp_metrics.csv";
+        filename << "tcp_metrics";
     }
 
-    std::cout << "[client]: connected to" << connection << "\n";
+    int sleep = 0;
+    if (argc > 2) {
+        sleep = atoi(argv[2]);
+        filename << "_" << sleep << "sleep_ms.csv";
+    }
 
-    std::ofstream file(filename, std::ios::app);
+    std::cout << "[client]: connected to " << connection << "\n";
+
+    std::ofstream file(filename.str(), std::ios::app);
     file << "id,response_time_ms,size_bytes\n";
 
     zmq::context_t context(1);
@@ -45,7 +53,7 @@ int main(int argc, char* argv[]) {
 
     auto mock_model_input = random_model_inputs(41);
 
-    const int numRequests = 1000000;
+    const int numRequests = 10000;
     for (int i = 0; i < numRequests; ++i) {
         auto start = std::chrono::high_resolution_clock::now();
 
@@ -65,8 +73,13 @@ int main(int argc, char* argv[]) {
         file << (i + 1) << ",";
         file << elapsed.count() << ",";
         file << mock_model_input.size() << "\n";
+
+        if (sleep > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(sleep));
+        }
     }
 
+    std::cout << "Done!\n";
     file.close();
 
     return 0;
