@@ -1,4 +1,5 @@
 use zmq::Context;
+
 fn main() {
     let context = Context::new();
     let frontend = context.socket(zmq::ROUTER).unwrap();

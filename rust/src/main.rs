@@ -1,18 +1,20 @@
 extern crate flatbuffers;
-mod extended_request_reply_broker;
-mod schema_generated;
 
-use crate::schema_generated::{AntiFraudInputBuilder, AntiFraudResponse};
+use std::error::Error;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use std::{fs::File, io::Write, time::Instant};
+
 use clap::{Parser, Subcommand};
 use flatbuffers::FlatBufferBuilder;
 use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use std::error::Error;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
-use std::{env, fs::File, io::Write, time::Instant};
 use zmq::Context;
+
+use crate::schema_generated::{AntiFraudInputBuilder, AntiFraudResponse};
+
+mod extended_request_reply_broker;
+mod schema_generated;
 
 const DEFAULT_ROUTER_ADDRESS: &str = "ipc:///tmp/router";
 const DEFAULT_LOOP_COUNT: u64 = 100;

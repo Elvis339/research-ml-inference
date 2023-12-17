@@ -3,11 +3,9 @@
 
 // @generated
 
-use core::mem;
-use core::cmp::Ordering;
-
 extern crate flatbuffers;
-use self::flatbuffers::{EndianScalar, Follow};
+
+use self::flatbuffers::Follow;
 
 pub enum AntiFraudInputOffset {}
 #[derive(Copy, Clone, PartialEq)]
@@ -56,8 +54,7 @@ impl flatbuffers::Verifiable for AntiFraudInput<'_> {
   fn run_verifier(
     v: &mut flatbuffers::Verifier, pos: usize
   ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
-    use self::flatbuffers::Verifiable;
-    v.visit_table(pos)?
+      v.visit_table(pos)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, f64>>>("inputs", Self::VT_INPUTS, false)?
      .finish();
     Ok(())
@@ -153,8 +150,7 @@ impl flatbuffers::Verifiable for AntiFraudResponse<'_> {
   fn run_verifier(
     v: &mut flatbuffers::Verifier, pos: usize
   ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
-    use self::flatbuffers::Verifiable;
-    v.visit_table(pos)?
+      v.visit_table(pos)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, f64>>>("response", Self::VT_RESPONSE, false)?
      .finish();
     Ok(())
