@@ -4,6 +4,7 @@ use std::error::Error;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{fs::File, io::Write, time::Instant};
+use std::mem::{size_of, size_of_val};
 
 use clap::{Parser, Subcommand};
 use flatbuffers::FlatBufferBuilder;
@@ -87,7 +88,9 @@ fn process_request(
 
     let binding = serialize_data(); // Assuming this returns a Result
     let data = binding.finished_data();
+    let size = size_of_val(&data);
     requester.send(data, zmq::DONTWAIT)?;
+    println!("Sent size {:?}", size);
 
     let msg = requester.recv_msg(0)?;
     let data = msg.as_ref();
@@ -96,7 +99,8 @@ fn process_request(
     let elapsed = start.elapsed().as_nanos();
     writeln!(file.lock().unwrap(), "{},{}", request_nbr, elapsed)?;
 
-    println!("Received reply {} in {:?} ns", request_nbr, elapsed);
+    let recv_size = size_of_val(msg.as_ref());
+    println!("Received reply {} in {:?} ns size {}", request_nbr, elapsed, recv_size);
     Ok(())
 }
 
