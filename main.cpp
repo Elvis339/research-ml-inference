@@ -9,6 +9,7 @@
 #include "src/AntiFraud.h"
 #include "src/CliArgParser.h"
 #include "schema_generated.h"
+#include "BS_thread_pool.hpp"
 
 uint64_t timeSinceEpochMillisec() {
     using namespace std::chrono;
@@ -50,7 +51,7 @@ zmq::message_t serializeResponse(const std::vector<double>& antiFraudInferenceRe
     return message;
 }
 
-void workerTask(zmq::context_t& context, AntiFraud* anti_fraud, std::string& dealerAddress) {
+void workerTask(zmq::context_t& context, AntiFraud* anti_fraud, std::string& dealerAddress, BS::thread_pool& pool) {
     auto cerrCleanup = []() -> void { std::cerr.flush(); };
 
     try {
@@ -97,13 +98,32 @@ void runBroker(AntiFraud* anti_fraud, int workers, std::string& routerAddress, s
     frontend.bind(routerAddress); // For clients
     backend.bind(dealerAddress); // For worker threads
 
-    std::vector<std::thread> workerThreads;
-    workerThreads.reserve(workers);
+    BS::thread_pool pool(workers);
 
-    // Start worker threads
-    for (int i = 0; i < workers; ++i) {
-        workerThreads.emplace_back(workerTask, std::ref(context), anti_fraud, std::ref(dealerAddress));
+    for (auto i = 0; i < workers; i++) {
+        pool.push_task(workerTask, std::ref(context), anti_fraud, std::ref(dealerAddress), std::ref(pool));
     }
+
+
+//    std::vector<std::thread> workerThreads;
+//    workerThreads.reserve(workers);
+//
+//    for (int i = 0; i < workers; ++i) {
+//        std::thread t(workerTask, std::ref(context), anti_fraud, std::ref(dealerAddress), std::ref(pool));
+//        workerThreads.push_back(std::move(t));
+//    }
+//
+//    for (auto& t : workerThreads) {
+//        t.detach();
+//    }
+
+//    std::vector<std::thread> workerThreads;
+//    workerThreads.reserve(workers);
+//
+//    // Start worker threads
+//    for (int i = 0; i < workers; ++i) {
+//        workerThreads.emplace_back(workerTask, std::ref(context), anti_fraud, std::ref(dealerAddress));
+//    }
 
     std::cout << "[broker(" << timeSinceEpochMillisec() << ")]:" << "created thread pool of=" << workers << " workers\n";
     // Use ZeroMQ's proxy function to handle forwarding between sockets

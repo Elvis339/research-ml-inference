@@ -157,3 +157,20 @@ fn main() {
         }
     }
 }
+
+// 100 workers, handle 10k msgs 0.89s
+// 100 workers, handle 10k msgs in 0.88s
+// 100 workers, handle 10k msgs in 0.88s
+
+// 30 workers; handle 10k msgs in 0.88s
+// 30 workers; handle 10k msgs in 1.461s
+// 30 workers; handle 10k msgs in 1.484s
+
+// 20 workers; handle 10k msgs in 1.482s
+// 20 workers; handle 10k msgs in 1.475s
+// 20 workers; handle 10k msgs in 1.530s
+
+// 10 workers; handle 10k msgs in 1.475s
+// 10 workers; handle 10k msgs in 1.412s
+// 10 workers; handle 10k msgs in 1.440s
+
