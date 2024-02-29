@@ -1,9 +1,12 @@
-table AntiFraudInput {
+table AntiFraudRequest {
+    omv_id: string;
     inputs: [float64];
+    columns: uint8;
+    rows: uint8;
 }
 
 table AntiFraudResponse {
-    response: [float64];
+    response: float64;
 }
 
-root_type AntiFraudInput;
+root_type AntiFraudRequest;

@@ -13,61 +13,99 @@ static_assert(FLATBUFFERS_VERSION_MAJOR == 23 &&
               FLATBUFFERS_VERSION_REVISION == 26,
              "Non-compatible flatbuffers version included");
 
-struct AntiFraudInput;
-struct AntiFraudInputBuilder;
+struct AntiFraudRequest;
+struct AntiFraudRequestBuilder;
 
 struct AntiFraudResponse;
 struct AntiFraudResponseBuilder;
 
-struct AntiFraudInput FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
-  typedef AntiFraudInputBuilder Builder;
+struct AntiFraudRequest FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef AntiFraudRequestBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_INPUTS = 4
+    VT_OMV_ID = 4,
+    VT_INPUTS = 6,
+    VT_COLUMNS = 8,
+    VT_ROWS = 10
   };
+  const ::flatbuffers::String *omv_id() const {
+    return GetPointer<const ::flatbuffers::String *>(VT_OMV_ID);
+  }
   const ::flatbuffers::Vector<double> *inputs() const {
     return GetPointer<const ::flatbuffers::Vector<double> *>(VT_INPUTS);
   }
+  uint8_t columns() const {
+    return GetField<uint8_t>(VT_COLUMNS, 0);
+  }
+  uint8_t rows() const {
+    return GetField<uint8_t>(VT_ROWS, 0);
+  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_OMV_ID) &&
+           verifier.VerifyString(omv_id()) &&
            VerifyOffset(verifier, VT_INPUTS) &&
            verifier.VerifyVector(inputs()) &&
+           VerifyField<uint8_t>(verifier, VT_COLUMNS, 1) &&
+           VerifyField<uint8_t>(verifier, VT_ROWS, 1) &&
            verifier.EndTable();
   }
 };
 
-struct AntiFraudInputBuilder {
-  typedef AntiFraudInput Table;
+struct AntiFraudRequestBuilder {
+  typedef AntiFraudRequest Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
-  void add_inputs(::flatbuffers::Offset<::flatbuffers::Vector<double>> inputs) {
-    fbb_.AddOffset(AntiFraudInput::VT_INPUTS, inputs);
+  void add_omv_id(::flatbuffers::Offset<::flatbuffers::String> omv_id) {
+    fbb_.AddOffset(AntiFraudRequest::VT_OMV_ID, omv_id);
   }
-  explicit AntiFraudInputBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+  void add_inputs(::flatbuffers::Offset<::flatbuffers::Vector<double>> inputs) {
+    fbb_.AddOffset(AntiFraudRequest::VT_INPUTS, inputs);
+  }
+  void add_columns(uint8_t columns) {
+    fbb_.AddElement<uint8_t>(AntiFraudRequest::VT_COLUMNS, columns, 0);
+  }
+  void add_rows(uint8_t rows) {
+    fbb_.AddElement<uint8_t>(AntiFraudRequest::VT_ROWS, rows, 0);
+  }
+  explicit AntiFraudRequestBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ::flatbuffers::Offset<AntiFraudInput> Finish() {
+  ::flatbuffers::Offset<AntiFraudRequest> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = ::flatbuffers::Offset<AntiFraudInput>(end);
+    auto o = ::flatbuffers::Offset<AntiFraudRequest>(end);
     return o;
   }
 };
 
-inline ::flatbuffers::Offset<AntiFraudInput> CreateAntiFraudInput(
+inline ::flatbuffers::Offset<AntiFraudRequest> CreateAntiFraudRequest(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    ::flatbuffers::Offset<::flatbuffers::Vector<double>> inputs = 0) {
-  AntiFraudInputBuilder builder_(_fbb);
+    ::flatbuffers::Offset<::flatbuffers::String> omv_id = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<double>> inputs = 0,
+    uint8_t columns = 0,
+    uint8_t rows = 0) {
+  AntiFraudRequestBuilder builder_(_fbb);
   builder_.add_inputs(inputs);
+  builder_.add_omv_id(omv_id);
+  builder_.add_rows(rows);
+  builder_.add_columns(columns);
   return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<AntiFraudInput> CreateAntiFraudInputDirect(
+inline ::flatbuffers::Offset<AntiFraudRequest> CreateAntiFraudRequestDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<double> *inputs = nullptr) {
+    const char *omv_id = nullptr,
+    const std::vector<double> *inputs = nullptr,
+    uint8_t columns = 0,
+    uint8_t rows = 0) {
+  auto omv_id__ = omv_id ? _fbb.CreateString(omv_id) : 0;
   auto inputs__ = inputs ? _fbb.CreateVector<double>(*inputs) : 0;
-  return CreateAntiFraudInput(
+  return CreateAntiFraudRequest(
       _fbb,
-      inputs__);
+      omv_id__,
+      inputs__,
+      columns,
+      rows);
 }
 
 struct AntiFraudResponse FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -75,13 +113,12 @@ struct AntiFraudResponse FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table 
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_RESPONSE = 4
   };
-  const ::flatbuffers::Vector<double> *response() const {
-    return GetPointer<const ::flatbuffers::Vector<double> *>(VT_RESPONSE);
+  double response() const {
+    return GetField<double>(VT_RESPONSE, 0.0);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_RESPONSE) &&
-           verifier.VerifyVector(response()) &&
+           VerifyField<double>(verifier, VT_RESPONSE, 8) &&
            verifier.EndTable();
   }
 };
@@ -90,8 +127,8 @@ struct AntiFraudResponseBuilder {
   typedef AntiFraudResponse Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
-  void add_response(::flatbuffers::Offset<::flatbuffers::Vector<double>> response) {
-    fbb_.AddOffset(AntiFraudResponse::VT_RESPONSE, response);
+  void add_response(double response) {
+    fbb_.AddElement<double>(AntiFraudResponse::VT_RESPONSE, response, 0.0);
   }
   explicit AntiFraudResponseBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -106,48 +143,39 @@ struct AntiFraudResponseBuilder {
 
 inline ::flatbuffers::Offset<AntiFraudResponse> CreateAntiFraudResponse(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    ::flatbuffers::Offset<::flatbuffers::Vector<double>> response = 0) {
+    double response = 0.0) {
   AntiFraudResponseBuilder builder_(_fbb);
   builder_.add_response(response);
   return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<AntiFraudResponse> CreateAntiFraudResponseDirect(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<double> *response = nullptr) {
-  auto response__ = response ? _fbb.CreateVector<double>(*response) : 0;
-  return CreateAntiFraudResponse(
-      _fbb,
-      response__);
+inline const AntiFraudRequest *GetAntiFraudRequest(const void *buf) {
+  return ::flatbuffers::GetRoot<AntiFraudRequest>(buf);
 }
 
-inline const AntiFraudInput *GetAntiFraudInput(const void *buf) {
-  return ::flatbuffers::GetRoot<AntiFraudInput>(buf);
+inline const AntiFraudRequest *GetSizePrefixedAntiFraudRequest(const void *buf) {
+  return ::flatbuffers::GetSizePrefixedRoot<AntiFraudRequest>(buf);
 }
 
-inline const AntiFraudInput *GetSizePrefixedAntiFraudInput(const void *buf) {
-  return ::flatbuffers::GetSizePrefixedRoot<AntiFraudInput>(buf);
-}
-
-inline bool VerifyAntiFraudInputBuffer(
+inline bool VerifyAntiFraudRequestBuffer(
     ::flatbuffers::Verifier &verifier) {
-  return verifier.VerifyBuffer<AntiFraudInput>(nullptr);
+  return verifier.VerifyBuffer<AntiFraudRequest>(nullptr);
 }
 
-inline bool VerifySizePrefixedAntiFraudInputBuffer(
+inline bool VerifySizePrefixedAntiFraudRequestBuffer(
     ::flatbuffers::Verifier &verifier) {
-  return verifier.VerifySizePrefixedBuffer<AntiFraudInput>(nullptr);
+  return verifier.VerifySizePrefixedBuffer<AntiFraudRequest>(nullptr);
 }
 
-inline void FinishAntiFraudInputBuffer(
+inline void FinishAntiFraudRequestBuffer(
     ::flatbuffers::FlatBufferBuilder &fbb,
-    ::flatbuffers::Offset<AntiFraudInput> root) {
+    ::flatbuffers::Offset<AntiFraudRequest> root) {
   fbb.Finish(root);
 }
 
-inline void FinishSizePrefixedAntiFraudInputBuffer(
+inline void FinishSizePrefixedAntiFraudRequestBuffer(
     ::flatbuffers::FlatBufferBuilder &fbb,
-    ::flatbuffers::Offset<AntiFraudInput> root) {
+    ::flatbuffers::Offset<AntiFraudRequest> root) {
   fbb.FinishSizePrefixed(root);
 }
 

@@ -1,10 +1,10 @@
 extern crate flatbuffers;
 
 use std::error::Error;
+use std::mem::{size_of, size_of_val};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use std::{fs::File, io::Write, time::Instant};
-use std::mem::{size_of, size_of_val};
 
 use clap::{Parser, Subcommand};
 use flatbuffers::FlatBufferBuilder;
@@ -12,7 +12,8 @@ use rand::Rng;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use zmq::Context;
 
-use crate::schema_generated::{AntiFraudInputBuilder, AntiFraudResponse};
+use crate::schema_generated::{AntiFraudRequestBuilder, AntiFraudResponse};
+use uuid::Uuid;
 
 mod extended_request_reply_broker;
 mod schema_generated;
@@ -31,6 +32,9 @@ struct Cli {
     #[arg(short, long)]
     /// Address where to send messages
     router_address: Option<String>,
+
+    #[arg(short, long)]
+    verbose: Option<bool>,
 
     #[command(subcommand)]
     request_config: Option<Config>,
@@ -59,10 +63,15 @@ fn serialize_data() -> FlatBufferBuilder<'static> {
     let mut builder = FlatBufferBuilder::with_capacity(1024); // Arbitrary capacity
 
     let inputs = builder.create_vector(&model_inputs);
-    let mut af_input_builder = AntiFraudInputBuilder::new(&mut builder);
-    af_input_builder.add_inputs(inputs);
+    let id = Uuid::new_v4();
+    let omv_id = builder.create_string(&id.to_string());
+    let mut af_req_builder = AntiFraudRequestBuilder::new(&mut builder);
+    af_req_builder.add_inputs(inputs);
+    af_req_builder.add_columns(model_inputs.len() as u8);
+    af_req_builder.add_rows(1);
+    af_req_builder.add_omv_id(omv_id);
 
-    let af_input = af_input_builder.finish();
+    let af_input = af_req_builder.finish();
     builder.finish(af_input, None);
 
     builder
@@ -81,6 +90,7 @@ fn process_request(
     router_address: &str,
     file: &Mutex<File>,
     request_nbr: u64,
+    verbose: bool,
 ) -> Result<(), Box<dyn Error>> {
     let binding = router_address.to_string();
     let requester = setup_requester(context.clone(), &binding);
@@ -94,13 +104,19 @@ fn process_request(
 
     let msg = requester.recv_msg(0)?;
     let data = msg.as_ref();
-    let _ = flatbuffers::root::<AntiFraudResponse>(data)?; // Handle this result as needed
+    let af_response = flatbuffers::root::<AntiFraudResponse>(data)?; // Handle this result as needed
+    let af_response_vec = af_response.response().unwrap();
 
     let elapsed = start.elapsed().as_nanos();
     writeln!(file.lock().unwrap(), "{},{}", request_nbr, elapsed)?;
 
     let recv_size = size_of_val(msg.as_ref());
-    println!("Received reply {} in {:?} ns size {}", request_nbr, elapsed, recv_size);
+
+    if verbose {
+        println!("Received reply {} in {:?} ns size {}", request_nbr, elapsed, recv_size);
+    }
+
+    println!("Response: {:?}", af_response_vec.get(0));
     Ok(())
 }
 
@@ -111,6 +127,7 @@ fn main() {
     let binding = DEFAULT_ROUTER_ADDRESS.to_string();
     let router_address = Arc::new(cli.router_address.unwrap_or(binding));
     let request_config = cli.request_config;
+    let verbose = cli.verbose.unwrap_or(false);
 
     println!("Loop count: {}", count);
 
@@ -128,7 +145,7 @@ fn main() {
                 (context, file),
                 |(context, file), request_nbr| {
                     if let Err(e) =
-                        process_request(context.clone(), &router_address, &file, request_nbr)
+                        process_request(context.clone(), &router_address, &file, request_nbr, verbose)
                     {
                         eprintln!("Failed to process request {}: {}", request_nbr, e);
                     }
@@ -149,7 +166,7 @@ fn main() {
                 }
 
                 if let Err(e) =
-                    process_request(context.clone(), &router_address, &file, request_nbr)
+                    process_request(context.clone(), &router_address, &file, request_nbr, verbose)
                 {
                     eprintln!("Failed to process request {}: {}", request_nbr, e);
                 }
@@ -157,20 +174,3 @@ fn main() {
         }
     }
 }
-
-// 100 workers, handle 10k msgs 0.89s
-// 100 workers, handle 10k msgs in 0.88s
-// 100 workers, handle 10k msgs in 0.88s
-
-// 30 workers; handle 10k msgs in 0.88s
-// 30 workers; handle 10k msgs in 1.461s
-// 30 workers; handle 10k msgs in 1.484s
-
-// 20 workers; handle 10k msgs in 1.482s
-// 20 workers; handle 10k msgs in 1.475s
-// 20 workers; handle 10k msgs in 1.530s
-
-// 10 workers; handle 10k msgs in 1.475s
-// 10 workers; handle 10k msgs in 1.412s
-// 10 workers; handle 10k msgs in 1.440s
-

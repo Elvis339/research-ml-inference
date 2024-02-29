@@ -3,103 +3,157 @@
 
 // @generated
 
+use core::mem;
+use core::cmp::Ordering;
+
 extern crate flatbuffers;
+use self::flatbuffers::{EndianScalar, Follow};
 
-use self::flatbuffers::Follow;
-
-pub enum AntiFraudInputOffset {}
+pub enum AntiFraudRequestOffset {}
 #[derive(Copy, Clone, PartialEq)]
 
-pub struct AntiFraudInput<'a> {
+pub struct AntiFraudRequest<'a> {
   pub _tab: flatbuffers::Table<'a>,
 }
 
-impl<'a> flatbuffers::Follow<'a> for AntiFraudInput<'a> {
-  type Inner = AntiFraudInput<'a>;
+impl<'a> flatbuffers::Follow<'a> for AntiFraudRequest<'a> {
+  type Inner = AntiFraudRequest<'a>;
   #[inline]
   unsafe fn follow(buf: &'a [u8], loc: usize) -> Self::Inner {
     Self { _tab: flatbuffers::Table::new(buf, loc) }
   }
 }
 
-impl<'a> AntiFraudInput<'a> {
-  pub const VT_INPUTS: flatbuffers::VOffsetT = 4;
+impl<'a> AntiFraudRequest<'a> {
+  pub const VT_OMV_ID: flatbuffers::VOffsetT = 4;
+  pub const VT_INPUTS: flatbuffers::VOffsetT = 6;
+  pub const VT_COLUMNS: flatbuffers::VOffsetT = 8;
+  pub const VT_ROWS: flatbuffers::VOffsetT = 10;
 
   #[inline]
   pub unsafe fn init_from_table(table: flatbuffers::Table<'a>) -> Self {
-    AntiFraudInput { _tab: table }
+    AntiFraudRequest { _tab: table }
   }
   #[allow(unused_mut)]
   pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
     _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-    args: &'args AntiFraudInputArgs<'args>
-  ) -> flatbuffers::WIPOffset<AntiFraudInput<'bldr>> {
-    let mut builder = AntiFraudInputBuilder::new(_fbb);
+    args: &'args AntiFraudRequestArgs<'args>
+  ) -> flatbuffers::WIPOffset<AntiFraudRequest<'bldr>> {
+    let mut builder = AntiFraudRequestBuilder::new(_fbb);
     if let Some(x) = args.inputs { builder.add_inputs(x); }
+    if let Some(x) = args.omv_id { builder.add_omv_id(x); }
+    builder.add_rows(args.rows);
+    builder.add_columns(args.columns);
     builder.finish()
   }
 
 
   #[inline]
+  pub fn omv_id(&self) -> Option<&'a str> {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<&str>>(AntiFraudRequest::VT_OMV_ID, None)}
+  }
+  #[inline]
   pub fn inputs(&self) -> Option<flatbuffers::Vector<'a, f64>> {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, f64>>>(AntiFraudInput::VT_INPUTS, None)}
+    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, f64>>>(AntiFraudRequest::VT_INPUTS, None)}
+  }
+  #[inline]
+  pub fn columns(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(AntiFraudRequest::VT_COLUMNS, Some(0)).unwrap()}
+  }
+  #[inline]
+  pub fn rows(&self) -> u8 {
+    // Safety:
+    // Created from valid Table for this object
+    // which contains a valid value in this slot
+    unsafe { self._tab.get::<u8>(AntiFraudRequest::VT_ROWS, Some(0)).unwrap()}
   }
 }
 
-impl flatbuffers::Verifiable for AntiFraudInput<'_> {
+impl flatbuffers::Verifiable for AntiFraudRequest<'_> {
   #[inline]
   fn run_verifier(
     v: &mut flatbuffers::Verifier, pos: usize
   ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
-      v.visit_table(pos)?
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<flatbuffers::ForwardsUOffset<&str>>("omv_id", Self::VT_OMV_ID, false)?
      .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, f64>>>("inputs", Self::VT_INPUTS, false)?
+     .visit_field::<u8>("columns", Self::VT_COLUMNS, false)?
+     .visit_field::<u8>("rows", Self::VT_ROWS, false)?
      .finish();
     Ok(())
   }
 }
-pub struct AntiFraudInputArgs<'a> {
+pub struct AntiFraudRequestArgs<'a> {
+    pub omv_id: Option<flatbuffers::WIPOffset<&'a str>>,
     pub inputs: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, f64>>>,
+    pub columns: u8,
+    pub rows: u8,
 }
-impl<'a> Default for AntiFraudInputArgs<'a> {
+impl<'a> Default for AntiFraudRequestArgs<'a> {
   #[inline]
   fn default() -> Self {
-    AntiFraudInputArgs {
+    AntiFraudRequestArgs {
+      omv_id: None,
       inputs: None,
+      columns: 0,
+      rows: 0,
     }
   }
 }
 
-pub struct AntiFraudInputBuilder<'a: 'b, 'b> {
+pub struct AntiFraudRequestBuilder<'a: 'b, 'b> {
   fbb_: &'b mut flatbuffers::FlatBufferBuilder<'a>,
   start_: flatbuffers::WIPOffset<flatbuffers::TableUnfinishedWIPOffset>,
 }
-impl<'a: 'b, 'b> AntiFraudInputBuilder<'a, 'b> {
+impl<'a: 'b, 'b> AntiFraudRequestBuilder<'a, 'b> {
   #[inline]
-  pub fn add_inputs(&mut self, inputs: flatbuffers::WIPOffset<flatbuffers::Vector<'b , f64>>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(AntiFraudInput::VT_INPUTS, inputs);
+  pub fn add_omv_id(&mut self, omv_id: flatbuffers::WIPOffset<&'b  str>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(AntiFraudRequest::VT_OMV_ID, omv_id);
   }
   #[inline]
-  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> AntiFraudInputBuilder<'a, 'b> {
+  pub fn add_inputs(&mut self, inputs: flatbuffers::WIPOffset<flatbuffers::Vector<'b , f64>>) {
+    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(AntiFraudRequest::VT_INPUTS, inputs);
+  }
+  #[inline]
+  pub fn add_columns(&mut self, columns: u8) {
+    self.fbb_.push_slot::<u8>(AntiFraudRequest::VT_COLUMNS, columns, 0);
+  }
+  #[inline]
+  pub fn add_rows(&mut self, rows: u8) {
+    self.fbb_.push_slot::<u8>(AntiFraudRequest::VT_ROWS, rows, 0);
+  }
+  #[inline]
+  pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> AntiFraudRequestBuilder<'a, 'b> {
     let start = _fbb.start_table();
-    AntiFraudInputBuilder {
+    AntiFraudRequestBuilder {
       fbb_: _fbb,
       start_: start,
     }
   }
   #[inline]
-  pub fn finish(self) -> flatbuffers::WIPOffset<AntiFraudInput<'a>> {
+  pub fn finish(self) -> flatbuffers::WIPOffset<AntiFraudRequest<'a>> {
     let o = self.fbb_.end_table(self.start_);
     flatbuffers::WIPOffset::new(o.value())
   }
 }
 
-impl core::fmt::Debug for AntiFraudInput<'_> {
+impl core::fmt::Debug for AntiFraudRequest<'_> {
   fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-    let mut ds = f.debug_struct("AntiFraudInput");
+    let mut ds = f.debug_struct("AntiFraudRequest");
+      ds.field("omv_id", &self.omv_id());
       ds.field("inputs", &self.inputs());
+      ds.field("columns", &self.columns());
+      ds.field("rows", &self.rows());
       ds.finish()
   }
 }
@@ -128,20 +182,20 @@ impl<'a> AntiFraudResponse<'a> {
   #[allow(unused_mut)]
   pub fn create<'bldr: 'args, 'args: 'mut_bldr, 'mut_bldr>(
     _fbb: &'mut_bldr mut flatbuffers::FlatBufferBuilder<'bldr>,
-    args: &'args AntiFraudResponseArgs<'args>
+    args: &'args AntiFraudResponseArgs
   ) -> flatbuffers::WIPOffset<AntiFraudResponse<'bldr>> {
     let mut builder = AntiFraudResponseBuilder::new(_fbb);
-    if let Some(x) = args.response { builder.add_response(x); }
+    builder.add_response(args.response);
     builder.finish()
   }
 
 
   #[inline]
-  pub fn response(&self) -> Option<flatbuffers::Vector<'a, f64>> {
+  pub fn response(&self) -> f64 {
     // Safety:
     // Created from valid Table for this object
     // which contains a valid value in this slot
-    unsafe { self._tab.get::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'a, f64>>>(AntiFraudResponse::VT_RESPONSE, None)}
+    unsafe { self._tab.get::<f64>(AntiFraudResponse::VT_RESPONSE, Some(0.0)).unwrap()}
   }
 }
 
@@ -150,20 +204,21 @@ impl flatbuffers::Verifiable for AntiFraudResponse<'_> {
   fn run_verifier(
     v: &mut flatbuffers::Verifier, pos: usize
   ) -> Result<(), flatbuffers::InvalidFlatbuffer> {
-      v.visit_table(pos)?
-     .visit_field::<flatbuffers::ForwardsUOffset<flatbuffers::Vector<'_, f64>>>("response", Self::VT_RESPONSE, false)?
+    use self::flatbuffers::Verifiable;
+    v.visit_table(pos)?
+     .visit_field::<f64>("response", Self::VT_RESPONSE, false)?
      .finish();
     Ok(())
   }
 }
-pub struct AntiFraudResponseArgs<'a> {
-    pub response: Option<flatbuffers::WIPOffset<flatbuffers::Vector<'a, f64>>>,
+pub struct AntiFraudResponseArgs {
+    pub response: f64,
 }
-impl<'a> Default for AntiFraudResponseArgs<'a> {
+impl<'a> Default for AntiFraudResponseArgs {
   #[inline]
   fn default() -> Self {
     AntiFraudResponseArgs {
-      response: None,
+      response: 0.0,
     }
   }
 }
@@ -174,8 +229,8 @@ pub struct AntiFraudResponseBuilder<'a: 'b, 'b> {
 }
 impl<'a: 'b, 'b> AntiFraudResponseBuilder<'a, 'b> {
   #[inline]
-  pub fn add_response(&mut self, response: flatbuffers::WIPOffset<flatbuffers::Vector<'b , f64>>) {
-    self.fbb_.push_slot_always::<flatbuffers::WIPOffset<_>>(AntiFraudResponse::VT_RESPONSE, response);
+  pub fn add_response(&mut self, response: f64) {
+    self.fbb_.push_slot::<f64>(AntiFraudResponse::VT_RESPONSE, response, 0.0);
   }
   #[inline]
   pub fn new(_fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>) -> AntiFraudResponseBuilder<'a, 'b> {
@@ -200,73 +255,73 @@ impl core::fmt::Debug for AntiFraudResponse<'_> {
   }
 }
 #[inline]
-/// Verifies that a buffer of bytes contains a `AntiFraudInput`
+/// Verifies that a buffer of bytes contains a `AntiFraudRequest`
 /// and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_anti_fraud_input_unchecked`.
-pub fn root_as_anti_fraud_input(buf: &[u8]) -> Result<AntiFraudInput, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::root::<AntiFraudInput>(buf)
+/// `root_as_anti_fraud_request_unchecked`.
+pub fn root_as_anti_fraud_request(buf: &[u8]) -> Result<AntiFraudRequest, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::root::<AntiFraudRequest>(buf)
 }
 #[inline]
 /// Verifies that a buffer of bytes contains a size prefixed
-/// `AntiFraudInput` and returns it.
+/// `AntiFraudRequest` and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `size_prefixed_root_as_anti_fraud_input_unchecked`.
-pub fn size_prefixed_root_as_anti_fraud_input(buf: &[u8]) -> Result<AntiFraudInput, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::size_prefixed_root::<AntiFraudInput>(buf)
+/// `size_prefixed_root_as_anti_fraud_request_unchecked`.
+pub fn size_prefixed_root_as_anti_fraud_request(buf: &[u8]) -> Result<AntiFraudRequest, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::size_prefixed_root::<AntiFraudRequest>(buf)
 }
 #[inline]
 /// Verifies, with the given options, that a buffer of bytes
-/// contains a `AntiFraudInput` and returns it.
+/// contains a `AntiFraudRequest` and returns it.
 /// Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_anti_fraud_input_unchecked`.
-pub fn root_as_anti_fraud_input_with_opts<'b, 'o>(
+/// `root_as_anti_fraud_request_unchecked`.
+pub fn root_as_anti_fraud_request_with_opts<'b, 'o>(
   opts: &'o flatbuffers::VerifierOptions,
   buf: &'b [u8],
-) -> Result<AntiFraudInput<'b>, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::root_with_opts::<AntiFraudInput<'b>>(opts, buf)
+) -> Result<AntiFraudRequest<'b>, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::root_with_opts::<AntiFraudRequest<'b>>(opts, buf)
 }
 #[inline]
 /// Verifies, with the given verifier options, that a buffer of
-/// bytes contains a size prefixed `AntiFraudInput` and returns
+/// bytes contains a size prefixed `AntiFraudRequest` and returns
 /// it. Note that verification is still experimental and may not
 /// catch every error, or be maximally performant. For the
 /// previous, unchecked, behavior use
-/// `root_as_anti_fraud_input_unchecked`.
-pub fn size_prefixed_root_as_anti_fraud_input_with_opts<'b, 'o>(
+/// `root_as_anti_fraud_request_unchecked`.
+pub fn size_prefixed_root_as_anti_fraud_request_with_opts<'b, 'o>(
   opts: &'o flatbuffers::VerifierOptions,
   buf: &'b [u8],
-) -> Result<AntiFraudInput<'b>, flatbuffers::InvalidFlatbuffer> {
-  flatbuffers::size_prefixed_root_with_opts::<AntiFraudInput<'b>>(opts, buf)
+) -> Result<AntiFraudRequest<'b>, flatbuffers::InvalidFlatbuffer> {
+  flatbuffers::size_prefixed_root_with_opts::<AntiFraudRequest<'b>>(opts, buf)
 }
 #[inline]
-/// Assumes, without verification, that a buffer of bytes contains a AntiFraudInput and returns it.
+/// Assumes, without verification, that a buffer of bytes contains a AntiFraudRequest and returns it.
 /// # Safety
-/// Callers must trust the given bytes do indeed contain a valid `AntiFraudInput`.
-pub unsafe fn root_as_anti_fraud_input_unchecked(buf: &[u8]) -> AntiFraudInput {
-  flatbuffers::root_unchecked::<AntiFraudInput>(buf)
+/// Callers must trust the given bytes do indeed contain a valid `AntiFraudRequest`.
+pub unsafe fn root_as_anti_fraud_request_unchecked(buf: &[u8]) -> AntiFraudRequest {
+  flatbuffers::root_unchecked::<AntiFraudRequest>(buf)
 }
 #[inline]
-/// Assumes, without verification, that a buffer of bytes contains a size prefixed AntiFraudInput and returns it.
+/// Assumes, without verification, that a buffer of bytes contains a size prefixed AntiFraudRequest and returns it.
 /// # Safety
-/// Callers must trust the given bytes do indeed contain a valid size prefixed `AntiFraudInput`.
-pub unsafe fn size_prefixed_root_as_anti_fraud_input_unchecked(buf: &[u8]) -> AntiFraudInput {
-  flatbuffers::size_prefixed_root_unchecked::<AntiFraudInput>(buf)
+/// Callers must trust the given bytes do indeed contain a valid size prefixed `AntiFraudRequest`.
+pub unsafe fn size_prefixed_root_as_anti_fraud_request_unchecked(buf: &[u8]) -> AntiFraudRequest {
+  flatbuffers::size_prefixed_root_unchecked::<AntiFraudRequest>(buf)
 }
 #[inline]
-pub fn finish_anti_fraud_input_buffer<'a, 'b>(
+pub fn finish_anti_fraud_request_buffer<'a, 'b>(
     fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>,
-    root: flatbuffers::WIPOffset<AntiFraudInput<'a>>) {
+    root: flatbuffers::WIPOffset<AntiFraudRequest<'a>>) {
   fbb.finish(root, None);
 }
 
 #[inline]
-pub fn finish_size_prefixed_anti_fraud_input_buffer<'a, 'b>(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>, root: flatbuffers::WIPOffset<AntiFraudInput<'a>>) {
+pub fn finish_size_prefixed_anti_fraud_request_buffer<'a, 'b>(fbb: &'b mut flatbuffers::FlatBufferBuilder<'a>, root: flatbuffers::WIPOffset<AntiFraudRequest<'a>>) {
   fbb.finish_size_prefixed(root, None);
 }
