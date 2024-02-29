@@ -96,7 +96,7 @@ fn process_request(
     let requester = setup_requester(context.clone(), &binding);
     let start = Instant::now();
 
-    let binding = serialize_data(); // Assuming this returns a Result
+    let binding = serialize_data();
     let data = binding.finished_data();
     let size = size_of_val(&data);
     requester.send(data, zmq::DONTWAIT)?;
@@ -104,8 +104,8 @@ fn process_request(
 
     let msg = requester.recv_msg(0)?;
     let data = msg.as_ref();
-    let af_response = flatbuffers::root::<AntiFraudResponse>(data)?; // Handle this result as needed
-    let af_response_vec = af_response.response().unwrap();
+    let af_response = flatbuffers::root::<AntiFraudResponse>(data)?;
+    let af_result = af_response.response();
 
     let elapsed = start.elapsed().as_nanos();
     writeln!(file.lock().unwrap(), "{},{}", request_nbr, elapsed)?;
@@ -116,7 +116,7 @@ fn process_request(
         println!("Received reply {} in {:?} ns size {}", request_nbr, elapsed, recv_size);
     }
 
-    println!("Response: {:?}", af_response_vec.get(0));
+    println!("Response: {:?}", af_result);
     Ok(())
 }
 
